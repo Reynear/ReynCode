@@ -21,6 +21,17 @@ describe("ProviderSettingsForm helpers", () => {
     ]);
   });
 
+  it("derives Gemini provider config fields from schema annotations", () => {
+    const gemini = DRIVER_OPTION_BY_VALUE[ProviderDriverKind.make("gemini")];
+
+    expect(gemini).toBeDefined();
+    expect(deriveProviderSettingsFields(gemini!).map((field) => field.key)).toEqual([
+      "binaryPath",
+      "homePath",
+      "launchArgs",
+    ]);
+  });
+
   it("sources labels and descriptions from schema annotations", () => {
     const opencode = DRIVER_OPTION_BY_VALUE[ProviderDriverKind.make("opencode")];
     expect(opencode).toBeDefined();

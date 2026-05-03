@@ -123,6 +123,13 @@ function createBaseServerConfig(): ServerConfig {
           launchArgs: "",
         },
         cursor: { enabled: true, binaryPath: "", apiEndpoint: "", customModels: [] },
+        gemini: {
+          enabled: true,
+          binaryPath: "",
+          homePath: "",
+          customModels: [],
+          launchArgs: "",
+        },
         opencode: {
           enabled: true,
           binaryPath: "",
