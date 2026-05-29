@@ -132,6 +132,7 @@ const CLAUDE_DRIVER_KIND = ProviderDriverKind.make("claudeAgent");
 const CURSOR_DRIVER_KIND = ProviderDriverKind.make("cursor");
 const GEMINI_DRIVER_KIND = ProviderDriverKind.make("gemini");
 const OPENCODE_DRIVER_KIND = ProviderDriverKind.make("opencode");
+const PI_DRIVER_KIND = ProviderDriverKind.make("pi");
 
 export const DEFAULT_MODEL = "gpt-5.4";
 export const DEFAULT_GIT_TEXT_GENERATION_MODEL = "gpt-5.4-mini";
@@ -142,6 +143,7 @@ export const DEFAULT_MODEL_BY_PROVIDER: Partial<Record<ProviderDriverKind, strin
   [CURSOR_DRIVER_KIND]: "auto",
   [GEMINI_DRIVER_KIND]: "gemini-3.1-pro-preview",
   [OPENCODE_DRIVER_KIND]: "openai/gpt-5",
+  [PI_DRIVER_KIND]: "openai/gpt-5",
 };
 
 /** Per-provider text generation model defaults. */
@@ -153,6 +155,7 @@ export const DEFAULT_GIT_TEXT_GENERATION_MODEL_BY_PROVIDER: Partial<
   [CURSOR_DRIVER_KIND]: "composer-2",
   [GEMINI_DRIVER_KIND]: "gemini-3-flash-preview",
   [OPENCODE_DRIVER_KIND]: "openai/gpt-5",
+  [PI_DRIVER_KIND]: "openai/gpt-5",
 };
 
 export const MODEL_SLUG_ALIASES_BY_PROVIDER: Partial<
@@ -199,6 +202,7 @@ export const MODEL_SLUG_ALIASES_BY_PROVIDER: Partial<
     lite: "gemini-3.1-flash-lite-preview",
   },
   [OPENCODE_DRIVER_KIND]: {},
+  [PI_DRIVER_KIND]: {},
 };
 
 // ── Provider display names ────────────────────────────────────────────
@@ -209,4 +213,5 @@ export const PROVIDER_DISPLAY_NAMES: Partial<Record<ProviderDriverKind, string>>
   [CURSOR_DRIVER_KIND]: "Cursor",
   [GEMINI_DRIVER_KIND]: "Gemini",
   [OPENCODE_DRIVER_KIND]: "OpenCode",
+  [PI_DRIVER_KIND]: "Pi",
 };
