@@ -5,6 +5,12 @@
 - All of `bun fmt`, `bun lint`, and `bun typecheck` must pass before considering tasks completed.
 - NEVER run `bun test`. Always use `bun run test` (runs Vitest).
 
+## GitHub Safety
+
+- NEVER create pull requests against `upstream`.
+- NEVER push, upload, or publish branches, commits, tags, releases, or other repository state to `upstream`.
+- Use `origin` for all PRs and publishing unless the user explicitly provides a different non-upstream target.
+
 ## Project Snapshot
 
 T3 Code is a minimal web GUI for using coding agents like Codex and Claude.
