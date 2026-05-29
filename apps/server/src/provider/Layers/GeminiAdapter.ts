@@ -118,6 +118,11 @@ interface GeminiSessionContext {
   stopped: boolean;
 }
 
+interface ThreadLock {
+  readonly semaphore: Semaphore.Semaphore;
+  readonly refCount: number;
+}
+
 function settlePendingApprovalsAsCancelled(
   pendingApprovals: ReadonlyMap<ApprovalRequestId, PendingApproval>,
 ): Effect.Effect<void> {
@@ -215,7 +220,7 @@ export function makeGeminiAdapter(
       options?.nativeEventLogger === undefined ? nativeEventLogger : undefined;
 
     const sessions = new Map<ThreadId, GeminiSessionContext>();
-    const threadLocksRef = yield* SynchronizedRef.make(new Map<string, Semaphore.Semaphore>());
+    const threadLocksRef = yield* SynchronizedRef.make(new Map<ThreadId, ThreadLock>());
     const runtimeEventPubSub = yield* PubSub.unbounded<ProviderRuntimeEvent>();
 
     const nowIso = Effect.map(DateTime.now, DateTime.formatIso);
@@ -225,26 +230,61 @@ export function makeGeminiAdapter(
     const offerRuntimeEvent = (event: ProviderRuntimeEvent) =>
       PubSub.publish(runtimeEventPubSub, event).pipe(Effect.asVoid);
 
-    const getThreadSemaphore = (threadId: string) =>
+    const retainThreadSemaphore = (threadId: ThreadId) =>
       SynchronizedRef.modifyEffect(threadLocksRef, (current) => {
-        const existing: Option.Option<Semaphore.Semaphore> = Option.fromNullishOr(
-          current.get(threadId),
-        );
+        const existing: Option.Option<ThreadLock> = Option.fromNullishOr(current.get(threadId));
         return Option.match(existing, {
           onNone: () =>
             Semaphore.make(1).pipe(
               Effect.map((semaphore) => {
                 const next = new Map(current);
-                next.set(threadId, semaphore);
+                next.set(threadId, { semaphore, refCount: 1 });
                 return [semaphore, next] as const;
               }),
             ),
-          onSome: (semaphore) => Effect.succeed([semaphore, current] as const),
+          onSome: (threadLock) => {
+            const next = new Map(current);
+            next.set(threadId, {
+              ...threadLock,
+              refCount: threadLock.refCount + 1,
+            });
+            return Effect.succeed([threadLock.semaphore, next] as const);
+          },
         });
       });
 
-    const withThreadLock = <A, E, R>(threadId: string, effect: Effect.Effect<A, E, R>) =>
-      Effect.flatMap(getThreadSemaphore(threadId), (semaphore) => semaphore.withPermit(effect));
+    const releaseThreadSemaphore = (threadId: ThreadId) =>
+      SynchronizedRef.modify(threadLocksRef, (current) => {
+        const threadLock = current.get(threadId);
+        if (!threadLock) return [undefined, current] as const;
+
+        const refCount = threadLock.refCount - 1;
+        const next = new Map(current);
+        if (refCount <= 0 && !sessions.has(threadId)) {
+          next.delete(threadId);
+        } else {
+          next.set(threadId, { ...threadLock, refCount });
+        }
+        return [undefined, next] as const;
+      });
+
+    const pruneIdleThreadSemaphores = () =>
+      SynchronizedRef.modify(threadLocksRef, (current) => {
+        const next = new Map(current);
+        for (const [threadId, threadLock] of current) {
+          if (threadLock.refCount <= 0 && !sessions.has(threadId)) {
+            next.delete(threadId);
+          }
+        }
+        return [undefined, next] as const;
+      });
+
+    const withThreadLock = <A, E, R>(threadId: ThreadId, effect: Effect.Effect<A, E, R>) =>
+      Effect.acquireUseRelease(
+        retainThreadSemaphore(threadId),
+        (semaphore) => semaphore.withPermit(effect),
+        () => releaseThreadSemaphore(threadId),
+      );
 
     const logNative = (
       threadId: ThreadId,
@@ -856,10 +896,13 @@ export function makeGeminiAdapter(
       });
 
     const stopAll: GeminiAdapterShape["stopAll"] = () =>
-      Effect.forEach(sessions.values(), stopSessionInternal, { discard: true });
+      Effect.forEach(sessions.values(), stopSessionInternal, { discard: true }).pipe(
+        Effect.andThen(pruneIdleThreadSemaphores),
+      );
 
     yield* Effect.addFinalizer(() =>
       Effect.forEach(sessions.values(), stopSessionInternal, { discard: true }).pipe(
+        Effect.andThen(pruneIdleThreadSemaphores),
         Effect.tap(() => PubSub.shutdown(runtimeEventPubSub)),
         Effect.tap(() => managedNativeEventLogger?.close() ?? Effect.void),
       ),
